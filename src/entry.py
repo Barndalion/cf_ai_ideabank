@@ -1,65 +1,90 @@
 from workers import DurableObject, Response, WorkerEntrypoint
+import json
 
-"""
- * Welcome to Cloudflare Workers! This is your first Durable Objects application.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your Durable Object in action
- * - Run `npm run deploy` to publish your application
- *
- * Learn more at https://developers.cloudflare.com/durable-objects
-"""
 
-"""
- * Env provides a mechanism to reference bindings declared in wrangler.jsonc within Python
- *
- * @typedef {Object} Env
- * @property {DurableObjectNamespace} MY_DURABLE_OBJECT - The Durable Object namespace binding
-"""
-
-# A Durable Object's behavior is defined in an exported Python class
 class MyDurableObject(DurableObject):
-    """
-     * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
-     * `DurableObjectStub::get` for a given identifier (no-op constructors can be omitted)
-     *
-     * @param {DurableObjectState} ctx - The interface for interacting with Durable Object state
-     * @param {Env} env - The interface to reference bindings declared in wrangler.jsonc
-    """
+  
     def __init__(self, ctx, env):
         super().__init__(ctx, env)
-
-    """
-     * The Durable Object exposes an RPC method `say_hello` which will be invoked when a Durable
-     *  Object instance receives a request from a Worker via the same method invocation on the stub
-     *
-     * @param {string} name - The name provided to a Durable Object instance from a Worker
-     * @returns {Promise<string>} The greeting to be sent back to the Worker
-    """
+    
     async def say_hello(self, name):
         return f"Hello, {name}!"
+    
+    async def gen_reply(self,message: str) -> dict:
+        return dict({"role":"assistant","content":f"you said {message}"})
+    
+    async def chat_handler(self,role,message):
+        raw = await self.ctx.storage.get("messages")
+        if raw is None:
+            messages = []
+        else:
+            messages = json.loads(raw)
+
+        current_message = dict({"role":role, "content": message})
+        reply = await self.gen_reply(current_message.get("content"))
+
+        messages.append(current_message)
+        messages.append(reply)
+        
+        await self.ctx.storage.put("messages",json.dumps(messages))
+        
+
+        return reply
+    
+    async def get_history(self):
+        raw = await self.ctx.storage.get("messages")
+
+        if raw is None:
+            messages = []
+        else:
+            messages = json.loads(raw)
+        
+        return messages
 
 
 class Default(WorkerEntrypoint):
-    """
-    * This is the standard fetch handler for a Cloudflare Worker
-    *
-    * @param {Request} request - The request submitted to the Worker from the client
-    * @param {Env} env - The interface to reference bindings declared in wrangler.jsonc
-    * @param {ExecutionContext} ctx - The execution context of the Worker
-    * @returns {Promise<Response>} The response to be sent back to the client
-    """
     async def fetch(self, request):
-        # Create a stub to open a communication channel with the Durable Object
-        # instance named "foo".
-        #
-        # Requests from all Workers to the Durable Object instance named "foo"
-        # will go to a single remote Durable Object instance.
-        stub = self.env.MY_DURABLE_OBJECT.getByName("foo")
 
-        # Call the `say_hello()` RPC method on the stub to invoke the method on
-        # the remote Durable Object instance.
-        greeting = await stub.say_hello("world")
+        url = request.url
+        method = request.method
+       
 
-        return Response(greeting)
+        # Chat endpoint (no AI yet)
+        if method == "POST" and url.endswith("/chat"):
+            stub = self.env.MY_DURABLE_OBJECT.getByName("foo")
+            try:
+                body = await request.json()
+            except Exception:
+                return Response(
+                    json.dumps({"error": "Invalid JSON"}),
+                    headers={"content-type": "application/json"},
+                    status=400,
+                )
 
+            msg = body.get("message")
+            if not isinstance(msg, str) or not msg.strip():
+                return Response(
+                    json.dumps({"error": "`message` must be a non-empty string"}),
+                    headers={"content-type": "application/json"},
+                    status=400,
+                )
+
+            # For now, just echo back
+            reply = await stub.chat_handler("user",msg)
+
+            return Response(
+                json.dumps({"reply": reply["content"]}),
+                headers={"content-type": "application/json"},
+            )
+        
+        if method == "GET" and url.endswith("/history"):
+            stub = self.env.MY_DURABLE_OBJECT.getByName("foo")
+            messages = await stub.get_history()
+
+            return Response(
+                json.dumps({"messages": messages}),
+                headers={"content-type": "application/json"},
+            )
+        
+        
+        return Response("Not found", status=404)
