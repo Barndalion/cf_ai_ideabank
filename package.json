@@ -1,0 +1,13 @@
+{
+	"name": "winter-river-1c1a",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "uv run pywrangler deploy",
+		"dev": "uv run pywrangler dev",
+		"start": "uv run pywrangler dev"
+	},
+	"devDependencies": {
+		"wrangler": "^4.70.0"
+	}
+}
