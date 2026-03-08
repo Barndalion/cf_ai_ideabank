@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IdeaBank — Ideas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #111118; --surface2: #1a1a24;
+    --border: #ffffff0f; --border-hover: #ffffff1a;
+    --accent: #7c6aff; --accent-dim: #7c6aff22;
+    --text: #e8e8f0; --text-dim: #6b6b80; --text-muted: #3a3a50;
+    --danger: #ff4a6b; --success: #36d399;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  #sidebar { width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .logo { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; flex-direction: column; gap: 6px; }
+  .nav-link { font-size: 11px; padding: 8px 12px; border-radius: 6px; text-decoration: none; color: var(--text-dim); border: 1px solid transparent; transition: all 0.2s; letter-spacing: 0.5px; text-transform: uppercase; }
+  .nav-link:hover { border-color: var(--border-hover); color: var(--text); }
+  .nav-link.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  #topbar { padding: 20px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; background: var(--surface)88; backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10; }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; flex: 1; }
+  .ideas-count { font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px; }
+
+  .search-wrap { position: relative; width: 280px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; pointer-events: none; }
+  #search-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px 9px 34px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s; }
+  #search-input:focus { border-color: #7c6aff66; }
+  #search-input::placeholder { color: var(--text-muted); }
+  .clear-search { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; display: none; }
+  .clear-search.visible { display: block; }
+  .clear-search:hover { color: var(--text); }
+
+  #content { flex: 1; padding: 32px; overflow-y: auto; }
+  #content::-webkit-scrollbar { width: 4px; }
+  #content::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 2px; }
+
+  #ideas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+  .idea-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; transition: all 0.2s; animation: cardIn 0.3s ease; position: relative; overflow: hidden; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .idea-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent); opacity: 0; transition: opacity 0.2s; }
+  .idea-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px #0008; }
+  .idea-card:hover::before { opacity: 1; }
+  .idea-card-header { display: flex; align-items: flex-start; gap: 10px; }
+  .idea-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; flex: 1; line-height: 1.3; }
+  .idea-delete-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 4px; opacity: 0; transition: all 0.15s; flex-shrink: 0; }
+  .idea-card:hover .idea-delete-btn { opacity: 1; }
+  .idea-delete-btn:hover { color: var(--danger); background: #ff4a6b11; }
+  .idea-description { font-size: 12px; color: var(--text-dim); line-height: 1.6; flex: 1; }
+  .idea-id { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+  .show-more-btn { background: none; border: none; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 3px; }
+  .show-more-btn:hover { color: #9b8dff; }
+
+  .empty-state { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 80px 0; color: var(--text-muted); }
+  .empty-icon { font-size: 40px; opacity: 0.3; }
+  .empty-state p { font-size: 13px; }
+
+  .skeleton { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .skel-line { background: var(--surface2); border-radius: 4px; animation: shimmer 1.5s infinite; }
+  @keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+
+  .results-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px; }
+  .results-label span { color: var(--accent); }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; opacity: 0; transform: translateY(8px); transition: all 0.3s; pointer-events: none; z-index: 100; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.error { border-color: #ff4a6b66; color: var(--danger); }
+  #toast.success { border-color: #36d39966; color: var(--success); }
+
+  #confirm-overlay { position: fixed; inset: 0; background: #00000088; backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 200; }
+  #confirm-overlay.show { display: flex; }
+  .confirm-box { background: var(--surface2); border: 1px solid var(--border-hover); border-radius: 12px; padding: 24px; width: 320px; display: flex; flex-direction: column; gap: 16px; animation: cardIn 0.2s ease; }
+  .confirm-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 600; }
+  .confirm-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 8px 16px; border-radius: 6px; cursor: pointer; border: 1px solid var(--border); transition: all 0.2s; }
+  .btn-ghost { background: none; color: var(--text-dim); }
+  .btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+  .btn-danger { background: #ff4a6b22; border-color: #ff4a6b66; color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="logo">idea<span>bank</span></div>
+  <nav class="nav-links">
+    <a href="/app" class="nav-link">Chat</a>
+    <a href="ideas-page" class="nav-link active">Ideas</a>
+  </nav>
+</aside>
+
+<main id="main">
+  <div id="topbar">
+    <div class="page-title">Ideas</div>
+    <div class="ideas-count" id="ideas-count"></div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search-input" placeholder="Search ideas..." oninput="onSearch(this.value)">
+      <button class="clear-search" id="clear-btn" onclick="clearSearch()">✕</button>
+    </div>
+  </div>
+  <div id="content">
+    <div id="results-label" class="results-label" style="display:none"></div>
+    <div id="ideas-grid"></div>
+  </div>
+</main>
+
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Delete idea?</div>
+    <div class="confirm-desc" id="confirm-desc">This action cannot be undone.</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const API = 'https://cf_ai_ideabank.darellbarnes450.workers.dev'; // set to your Worker URL if on a different domain
+
+  // ── User identity — read from localStorage (set by chat.html on first visit) ──
+  const userId = localStorage.getItem('ideabank_user_id');
+  let allIdeas = {};
+  let pendingDeleteId = null;
+  let searchTimeout = null;
+
+  // ── Boot ──
+  if (!userId) {
+    // User hasn't visited chat.html yet — redirect them so a user_id gets generated
+    document.getElementById('ideas-grid').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">💡</div>
+        <p>Please open <a href="chat.html" style="color:var(--accent)">Chat</a> first to get started</p>
+      </div>`;
+  } else {
+    loadIdeas();
+  }
+
+  async function loadIdeas() {
+    showSkeleton();
+    try {
+      const data = await fetch(`${API}/ideas?user_id=${userId}`).then(r => r.json());
+      allIdeas = data;
+      renderIdeas(allIdeas);
+    } catch (e) {
+      showToast('Failed to load ideas', 'error');
+    }
+  }
+
+  function renderIdeas(ideas) {
+    const grid = document.getElementById('ideas-grid');
+    const entries = Object.entries(ideas);
+    document.getElementById('ideas-count').textContent = entries.length ? `${entries.length} idea${entries.length !== 1 ? 's' : ''}` : '';
+    grid.innerHTML = '';
+    if (!entries.length) {
+      grid.innerHTML = `<div class="empty-state"><div class="empty-icon">💡</div><p>No ideas yet — start a chat to add some</p></div>`;
+      return;
+    }
+    entries.forEach(([id, idea]) => {
+      const card = document.createElement('div');
+      card.className = 'idea-card';
+      const desc = idea.description || '';
+      const LIMIT = 160;
+      const truncated = desc.length > LIMIT;
+      const shortDesc = truncated ? desc.slice(0, LIMIT) + '...' : desc;
+      card.innerHTML = `
+        <div class="idea-card-header">
+          <div class="idea-title">${escHtml(idea.title || 'Untitled')}</div>
+          <button class="idea-delete-btn" title="Delete">✕</button>
+        </div>
+        <div class="idea-description" data-full="${escHtml(desc)}" data-short="${escHtml(shortDesc)}" data-expanded="false">
+          ${escHtml(shortDesc)}
+        </div>
+        ${truncated ? '<button class="show-more-btn">show more</button>' : ''}
+        <div class="idea-id">${id}</div>
+      `;
+      card.querySelector('.idea-delete-btn').addEventListener('click', () => askDelete(id, idea.title || 'this idea'));
+      if (truncated) {
+        card.querySelector('.show-more-btn').addEventListener('click', function() {
+          const descEl = card.querySelector('.idea-description');
+          const expanded = descEl.dataset.expanded === 'true';
+          descEl.textContent = expanded ? descEl.dataset.short : descEl.dataset.full;
+          descEl.dataset.expanded = !expanded;
+          this.textContent = expanded ? 'show more' : 'show less';
+        });
+      }
+      grid.appendChild(card);
+    });
+  }
+
+  function onSearch(query) {
+    const clearBtn = document.getElementById('clear-btn');
+    const label = document.getElementById('results-label');
+    clearBtn.className = query ? 'clear-search visible' : 'clear-search';
+    clearTimeout(searchTimeout);
+    if (!query.trim()) { label.style.display = 'none'; renderIdeas(allIdeas); return; }
+    searchTimeout = setTimeout(async () => {
+      try {
+        const data = await fetch(`${API}/ideas?user_id=${userId}&search=${encodeURIComponent(query)}`).then(r => r.json());
+        const results = data.results || [];
+        const resultMap = {};
+        results.forEach(idea => { if (idea.id) resultMap[idea.id] = idea; });
+        label.style.display = 'block';
+        label.innerHTML = `Showing <span>${results.length}</span> result${results.length !== 1 ? 's' : ''} for "${escHtml(query)}"`;
+        renderIdeas(resultMap);
+      } catch (e) { showToast('Search failed', 'error'); }
+    }, 350);
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    onSearch('');
+  }
+
+  function askDelete(id, title) {
+    pendingDeleteId = id;
+    document.getElementById('confirm-desc').textContent = `"${title}" will be permanently deleted.`;
+    document.getElementById('confirm-overlay').classList.add('show');
+  }
+
+  function closeConfirm() {
+    pendingDeleteId = null;
+    document.getElementById('confirm-overlay').classList.remove('show');
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    closeConfirm();
+    try {
+      const data = await fetch(`${API}/ideas?user_id=${userId}&idea_id=${id}`, { method: 'DELETE' }).then(r => r.json());
+      if (data.state) {
+        delete allIdeas[id];
+        const query = document.getElementById('search-input').value.trim();
+        if (query) onSearch(query); else renderIdeas(allIdeas);
+        showToast('Idea deleted', 'success');
+      } else {
+        showToast(data.message || 'Delete failed', 'error');
+      }
+    } catch (e) { showToast('Delete failed', 'error'); }
+  }
+
+  function showSkeleton() {
+    document.getElementById('ideas-grid').innerHTML = Array(6).fill(0).map(() => `
+      <div class="skeleton">
+        <div class="skel-line" style="height:16px;width:60%"></div>
+        <div class="skel-line" style="height:12px;width:100%"></div>
+        <div class="skel-line" style="height:12px;width:85%"></div>
+        <div class="skel-line" style="height:10px;width:40%;margin-top:4px"></div>
+      </div>`).join('');
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'show ' + type;
+    setTimeout(() => t.className = '', 2500);
+  }
+
+  function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  document.getElementById('confirm-overlay').addEventListener('click', function(e) { if (e.target === this) closeConfirm(); });
+</script>
+</body>
+</html>

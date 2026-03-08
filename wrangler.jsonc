@@ -12,14 +12,20 @@
 	],
 	"migrations": [
 		{
-			"new_sqlite_classes": [
+			"new_classes": [
 				"MyDurableObject"
 			],
 			"tag": "v1"
 		}
 	],
+	"assets": {
+		"directory": "./static",
+		"binding": "ASSETS",
+		"run_worker_first":true
+	},
 	"ai": { 
-		"binding": "AI" 
+		"binding": "AI" ,
+		"remote": true
 	},
 	"durable_objects": {
 		"bindings": [
